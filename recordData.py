@@ -18,6 +18,14 @@ chunk_duration = 3  # Desired chunk duration in seconds
 buffer_array = []
 
 
+def show_graph(buffer_array):
+  for index, buf in enumerate(buffer_array):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+
+    ax1.plot(buf)
+    ax1.set_title(str(index*chunk_duration) + " - " + str(index*chunk_duration+chunk_duration))
+    plt.show()
+
 # FUNCION QUE SE LLAMA MIENTRAS SE GRABA EL AUDIO
 def audio_callback(indata, frames, time, status):
   """Callback function for processing incoming audio data."""
@@ -92,11 +100,6 @@ with sd.InputStream(samplerate=fs, channels=Nchannel, callback=audio_callback):
 
 
 print(buffer_array)
-for index, buf in enumerate(buffer_array):
-  fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+show_graph(buffer_array)
 
-  ax1.plot(buf)
-  ax1.set_title(str(index*chunk_duration) + " - " + str(index*chunk_duration+chunk_duration))
-  plt.show()
-
-print("Recording stopped.")
+print("Program ended.")
