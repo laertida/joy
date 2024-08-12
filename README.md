@@ -1,4 +1,21 @@
-# Hi
-## Dataset
-This is the link with the dataset of the first episode of Friends
-https://drive.google.com/drive/folders/14bZma8-kR94xuB_JzJHy9QENM9Lk-CGt?usp=sharing
+# YAMNET
+
+## Setup
+
+1. Install a virtual environment.
+   `bash
+   python3 -m venv .venv
+   `
+2. Activate the virtual environment
+   ` bash
+   source .venv/bin/activate
+   `
+3. Install all dependencies.
+   ` bash
+   pip install -r dependencies.txt
+   `
+4. Run model
+   ` bash
+   python yamnet.py
+   `
+
