@@ -1,7 +1,12 @@
 # YAMNET
 
 ## Setup
-
+### Previous steps for raspberry
+1. Install dependencies for HDF5
+   ```bash
+   sudo apt-get install libhdf5-serial-dev
+ ```
+### On personal PC
 1. Install a virtual environment.
    ```bash
    python3 -m venv .venv
@@ -18,4 +23,3 @@
    ``` bash
    python yamnet.py
    ```
-
