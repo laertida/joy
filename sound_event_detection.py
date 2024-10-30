@@ -7,15 +7,21 @@ import pyaudio
 from matplotlib import pyplot as plt
 import pandas as pd
 import sounddevice as sd
-from functions import (checkThreshhold, logTaker)
+from functions import (checkThreshhold, logTaker, handleGPIO)
 import datetime
 
+import atexit
 
 from keras_yamnet import params
 from keras_yamnet.yamnet import YAMNet, class_names
 from keras_yamnet.preprocessing import preprocess_input
 
 from plot import Plotter
+
+@atexit.register
+def on_close():
+	 #print("Closed")
+	 handleGPIO(False)
 
 if __name__ == "__main__":
 
@@ -29,18 +35,13 @@ if __name__ == "__main__":
     WIN_SIZE_SEC = 0.975
     CHUNK = int(WIN_SIZE_SEC * RATE)
     RECORD_SECONDS = 500
-
-    #print(sd.query_devices())
     MIC = None
 
     #################### MODEL #####################
-    
     model = YAMNet(weights='keras_yamnet/yamnet.h5')
     yamnet_classes = class_names('keras_yamnet/yamnet_class_map.csv')
 
-
     #################### LOG VARIABLES  #####################
-
     timerFlag = False
     timer = 0
     timerMax = 3
@@ -54,7 +55,8 @@ if __name__ == "__main__":
 
     threshhold = [0.6]
 
-    print("Start Date | End Date | Count | Threshold1 | Threshold2 | ...")
+    # log headers as CSV file
+    print("Start Date,End Date,Count,Threshold")
 
     #################### STREAM ####################
     audio = pyaudio.PyAudio()
@@ -79,14 +81,10 @@ if __name__ == "__main__":
     monitor = Plotter(n_classes=n_classes, FIG_SIZE=(12,6), msd_labels=plt_classes_lab)
 
     for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-        # Waveform
+        # Waveform detection
         data = preprocess_input(np.frombuffer(
             stream.read(CHUNK), dtype=np.float32), RATE)
-        #prediction = model.predict(np.expand_dims(data,0))[0] version con barra de progreso
         prediction = model.predict(np.expand_dims(data,0), verbose=0)[0]
-
-        #print("laughter",prediction[plt_classes[0]])
-        #print("silence", prediction[plt_classes[1]])
 
         ########## LOGS MANAGEMENT
 
@@ -98,17 +96,15 @@ if __name__ == "__main__":
             else:
                 timer -= 1
 
-        #END LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
+        #EN LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
         if (timerFlag == True and timer <= 0):
-            timerFlag = False
-
             endDate = str(datetime.datetime.now())
-            # Cambiar por codigo de GPIO
-            led = False
-            #Mandar logs
+
+            # log entry
+            handleGPIO(False)
             logTaker(startDate, endDate, laughCounter, threshhold)
 
-            #RESET VALORES
+            #RESET VALUES
             timerFlag = False
             laughCounter = 0
             startDate = ""
@@ -116,28 +112,18 @@ if __name__ == "__main__":
 
         #START LAUGH CYCLE
         if (timerFlag == False and checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
-            timerFlag = True
-
+            # set values
             startDate = str(datetime.datetime.now())
-
+            timerFlag = True
             laughCounter += 1
-
             timer = timerMax
 
-            # Cambiar por codigo de GPIO
-            led = True
-
-        #print("timer: " + str(timer))
-
-        ##############
-
-
+            # on signal
+            handleGPIO(True)
 
         monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
 
-    print("finished recording")
-
-    # stop Recording
+    # close audio streams 
     stream.stop_stream()
     stream.close()
     audio.terminate()

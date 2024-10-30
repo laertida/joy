@@ -1,15 +1,29 @@
+import 	subprocess
+
 #Function used to create a log when a value over the threshold is detected
 def checkThreshhold(threshold, value):
     if (value > threshold):
-            #print("ruido!")
             return True
     else:
           return False
-    
+
+def handleGPIO(status):
+    # TODO: implement in native Python GPIO
+    if (status == True):
+        #print("on")
+        subprocess.run("./gpio/ledOn.sh", shell=True)
+    else:
+        #print("off")
+        subprocess.run("./gpio/ledOff.sh", shell=True)
+
+
 def logTaker(start, end, count, thresholds):
-      log = str(start) + ", " + str(end) + ", " + str(count) 
+    elements = [start, end, count] + thresholds  
 
-      for i in thresholds:
-            log = log + ", " + str(i)
+    log = ",".join(str(i) for i in elements) 
 
-      print(log)      
+      #log = str(start) + ", " + str(end) + ", " + str(count) 
+      #for i in thresholds:
+      #      log = log + ", " + str(i)
+
+    print(log)      
