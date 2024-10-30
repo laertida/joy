@@ -1,5 +1,5 @@
 import os
-#Removes logs from tensorflow to avoid unnecesary data in pipe
+#Removes logs from tensorflow to avoid unnecessary data in pipe
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import numpy as np
@@ -20,15 +20,15 @@ from plot import Plotter
 
 @atexit.register
 def on_close():
-	 #print("Closed")
-	 handleGPIO(False)
+    #print("Closed")
+    handleGPIO(False)
 
 if __name__ == "__main__":
 
     ################### SETTINGS ###################
-    #plt_classes = [0,13,14,17] # Speech, Music, Explosion, Silence 
-    plt_classes = [13,494]
-    class_labels=True
+    # Cambiado para incluir todos los tipos de risa identificados
+    plt_classes = [13, 14, 15, 16, 17, 18]  # índices de clases de risa
+    class_labels = True
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
     RATE = params.SAMPLE_RATE
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     model = YAMNet(weights='keras_yamnet/yamnet.h5')
     yamnet_classes = class_names('keras_yamnet/yamnet_class_map.csv')
 
-    #################### LOG VARIABLES  #####################
+    #################### LOG VARIABLES #####################
     timerFlag = False
     timer = 0
     timerMax = 3
@@ -68,7 +68,6 @@ if __name__ == "__main__":
                         rate=RATE,
                         input=True,
                         frames_per_buffer=CHUNK)
-    #print(str(datetime.datetime.now()))
 
     if plt_classes is not None:
         plt_classes_lab = yamnet_classes[plt_classes]
@@ -78,25 +77,26 @@ if __name__ == "__main__":
         plt_classes_lab = yamnet_classes if class_labels else None
         n_classes = len(yamnet_classes)
 
-    monitor = Plotter(n_classes=n_classes, FIG_SIZE=(12,6), msd_labels=plt_classes_lab)
+    monitor = Plotter(n_classes=n_classes, FIG_SIZE=(12, 6), msd_labels=plt_classes_lab)
 
     for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
         # Waveform detection
         data = preprocess_input(np.frombuffer(
             stream.read(CHUNK), dtype=np.float32), RATE)
-        prediction = model.predict(np.expand_dims(data,0), verbose=0)[0]
+        prediction = model.predict(np.expand_dims(data, 0), verbose=0)[0]
 
         ########## LOGS MANAGEMENT
 
-        #RESETS TIMER IF LAUGH IS DETECTED IN THE CYCLE
+        # RESETS TIMER IF LAUGH IS DETECTED IN THE CYCLE
         if (timerFlag == True):
-            if (checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
+            # Cambiado para revisar cualquier clase en plt_classes
+            if any(checkThreshhold(threshhold[0], prediction[plt_class]) for plt_class in plt_classes):
                 timer = timerMax
                 laughCounter += 1
             else:
                 timer -= 1
 
-        #EN LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
+        # END LAUGH LOG CYCLE, TURNS OFF MOVEMENT AND REGISTERS LOG IN THE
         if (timerFlag == True and timer <= 0):
             endDate = str(datetime.datetime.now())
 
@@ -104,14 +104,14 @@ if __name__ == "__main__":
             handleGPIO(False)
             logTaker(startDate, endDate, laughCounter, threshhold)
 
-            #RESET VALUES
+            # RESET VALUES
             timerFlag = False
             laughCounter = 0
             startDate = ""
             endDate = ""
 
-        #START LAUGH CYCLE
-        if (timerFlag == False and checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
+        # START LAUGH CYCLE
+        if (timerFlag == False and any(checkThreshhold(threshhold[0], prediction[plt_class]) for plt_class in plt_classes)):
             # set values
             startDate = str(datetime.datetime.now())
             timerFlag = True
@@ -121,9 +121,10 @@ if __name__ == "__main__":
             # on signal
             handleGPIO(True)
 
-        monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
+        # Cambiado para mostrar todas las predicciones de las clases seleccionadas
+        monitor(data.transpose(), np.expand_dims(prediction[plt_classes], -1))
 
-    # close audio streams 
+    # close audio streams
     stream.stop_stream()
     stream.close()
     audio.terminate()
