@@ -4,7 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import numpy as np
 import pyaudio
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 import pandas as pd
 import sounddevice as sd
 from functions import (checkThreshhold, logTaker, handleGPIO)
@@ -20,14 +20,25 @@ from plot import Plotter
 
 @atexit.register
 def on_close():
-	 #print("Closed")
 	 handleGPIO(False)
 
 if __name__ == "__main__":
 
     ################### SETTINGS ###################
-    #plt_classes = [0,13,14,17] # Speech, Music, Explosion, Silence 
-    plt_classes = [13,494]
+    plt_classes = [0,13,14,15,16,17,18,494] # Speech, Laugh, Baby Laughter, Belly Laugh, Shockle Hurtle Silence 
+    ejemplosRisa = [13,14,15,16,17,18]
+    
+    defaultRepeats = {
+    13: 0,
+    14: 0,
+    15: 0,
+    16: 0,
+    17: 0,
+    18: 0
+    }
+    
+    repeats = defaultRepeats
+    
     class_labels=True
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
@@ -36,6 +47,8 @@ if __name__ == "__main__":
     CHUNK = int(WIN_SIZE_SEC * RATE)
     RECORD_SECONDS = 500
     MIC = None
+
+    # print(sd.query_devices())
 
     #################### MODEL #####################
     model = YAMNet(weights='keras_yamnet/yamnet.h5')
@@ -46,17 +59,12 @@ if __name__ == "__main__":
     timer = 0
     timerMax = 3
 
-    laughCounter = 0
-
     led = False
 
     startDate = ""
     endDate = ""
 
     threshhold = [0.6]
-
-    # log headers as CSV file
-    print("Start Date,End Date,Count,Threshold")
 
     #################### STREAM ####################
     audio = pyaudio.PyAudio()
@@ -68,7 +76,6 @@ if __name__ == "__main__":
                         rate=RATE,
                         input=True,
                         frames_per_buffer=CHUNK)
-    #print(str(datetime.datetime.now()))
 
     if plt_classes is not None:
         plt_classes_lab = yamnet_classes[plt_classes]
@@ -78,7 +85,7 @@ if __name__ == "__main__":
         plt_classes_lab = yamnet_classes if class_labels else None
         n_classes = len(yamnet_classes)
 
-    monitor = Plotter(n_classes=n_classes, FIG_SIZE=(12,6), msd_labels=plt_classes_lab)
+    #monitor = Plotter(n_classes=n_classes, FIG_SIZE=(12,6), msd_labels=plt_classes_lab)
 
     for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
         # Waveform detection
@@ -91,37 +98,45 @@ if __name__ == "__main__":
         #RESETS TIMER IF LAUGH IS DETECTED IN THE CYCLE
         if (timerFlag == True):
             if (checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
-                timer = timerMax
-                laughCounter += 1
+                predicted_class_index = next((idx for idx, val in enumerate(prediction) if val == max(prediction)), None)
+                
+                if predicted_class_index in ejemplosRisa:
+                    repeats[predicted_class_index] += 1
+                    timer = timerMax
             else:
                 timer -= 1
 
-        #EN LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
+        #END LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
         if (timerFlag == True and timer <= 0):
             endDate = str(datetime.datetime.now())
 
             # log entry
             handleGPIO(False)
-            logTaker(startDate, endDate, laughCounter, threshhold)
+
+            logTaker(startDate, endDate, repeats)
 
             #RESET VALUES
             timerFlag = False
-            laughCounter = 0
             startDate = ""
             endDate = ""
+            
+            repeats = defaultRepeats
 
         #START LAUGH CYCLE
         if (timerFlag == False and checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
-            # set values
-            startDate = str(datetime.datetime.now())
-            timerFlag = True
-            laughCounter += 1
-            timer = timerMax
+            predicted_class_index = next((idx for idx, val in enumerate(prediction) if val == max(prediction)), None)
+            
+            if predicted_class_index in ejemplosRisa:  
+                repeats[predicted_class_index] += 1
+                # set values
+                startDate = str(datetime.datetime.now())
+                timerFlag = True
+                timer = timerMax
+                
+                # on signal
+                handleGPIO(True)
 
-            # on signal
-            handleGPIO(True)
-
-        monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
+        #monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
 
     # close audio streams 
     stream.stop_stream()

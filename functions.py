@@ -17,8 +17,8 @@ def handleGPIO(status):
         subprocess.run("./gpio/ledOff.sh", shell=True)
 
 
-def logTaker(start, end, count, thresholds):
-    elements = [start, end, count] + thresholds  
+def logTaker(start, end, repeatsDict):
+    elements = [start, end] + list(repeatsDict.values())
 
     log = ",".join(str(i) for i in elements) 
 
