@@ -9,6 +9,7 @@ import pandas as pd
 import sounddevice as sd
 from functions import (checkThreshhold, logTaker, handleGPIO)
 import datetime
+import subprocess
 
 import atexit
 
@@ -21,12 +22,17 @@ from plot import Plotter
 @atexit.register
 def on_close():
 	 handleGPIO(False)
+	 subprocess.run("/home/tec/startup.sh",shell=True)
 
 if __name__ == "__main__":
 
     ################### SETTINGS ###################
-    plt_classes = [0,13,14,15,16,17,18,494] # Speech, Laugh, Baby Laughter, Belly Laugh, Shockle Hurtle Silence 
-    ejemplosRisa = [13,14,15,16,17,18]
+    plt_classes = [494,13,14,15,16,17,18] # Speech, Laugh, Baby Laughter, Belly Laugh, Shockle Hurtle Silence 
+    #[Identificador de clase, threshold]
+    ejemplosRisa = [[13, .09],[14, .09],[15, .09],[16, .09],[17, .09],[18, .09]]
+    #print(len(ejemplosRisa))
+    
+    
     
     defaultRepeats = {
     13: 0,
@@ -45,7 +51,7 @@ if __name__ == "__main__":
     RATE = params.SAMPLE_RATE
     WIN_SIZE_SEC = 0.975
     CHUNK = int(WIN_SIZE_SEC * RATE)
-    RECORD_SECONDS = 500
+    RECORD_SECONDS = 1000
     MIC = None
 
     # print(sd.query_devices())
@@ -57,7 +63,7 @@ if __name__ == "__main__":
     #################### LOG VARIABLES  #####################
     timerFlag = False
     timer = 0
-    timerMax = 3
+    timerMax = 5
 
     led = False
 
@@ -97,44 +103,36 @@ if __name__ == "__main__":
 
         #RESETS TIMER IF LAUGH IS DETECTED IN THE CYCLE
         if (timerFlag == True):
-            if (checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
-                predicted_class_index = next((idx for idx, val in enumerate(prediction) if val == max(prediction)), None)
-                
-                if predicted_class_index in ejemplosRisa:
-                    repeats[predicted_class_index] += 1
-                    timer = timerMax
-            else:
-                timer -= 1
+            for i in range(len(ejemplosRisa)):
+                if (checkThreshhold(ejemplosRisa[i][1], prediction[ejemplosRisa[i][0]]) == True):
+                    #print("Si jalo Risa " + str(ejemplosRisa[i][0]) + " " + str(prediction[ejemplosRisa[i][0]]))
+                    repeats[ejemplosRisa[i][0]] += 1
+                    timer = timerMax + 1
+            timer -= 1
+            #print("timer "+ str(timer))
 
         #END LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
         if (timerFlag == True and timer <= 0):
             endDate = str(datetime.datetime.now())
-
             # log entry
             handleGPIO(False)
-
-            logTaker(startDate, endDate, repeats)
-
+            logTaker(startDate, endDate, repeats, ejemplosRisa)
             #RESET VALUES
             timerFlag = False
             startDate = ""
             endDate = ""
-            
-            repeats = defaultRepeats
+            repeats = {key: 0 for key in repeats.keys()}
 
         #START LAUGH CYCLE
-        if (timerFlag == False and checkThreshhold(threshhold[0], prediction[plt_classes[1]]) == True):
-            predicted_class_index = next((idx for idx, val in enumerate(prediction) if val == max(prediction)), None)
-            
-            if predicted_class_index in ejemplosRisa:  
-                repeats[predicted_class_index] += 1
-                # set values
-                startDate = str(datetime.datetime.now())
-                timerFlag = True
-                timer = timerMax
-                
-                # on signal
-                handleGPIO(True)
+        if (timerFlag == False and prediction[plt_classes[0]] <= .5):
+            for i in range(len(ejemplosRisa)):
+                if (checkThreshhold(ejemplosRisa[i][1], prediction[ejemplosRisa[i][0]]) == True):
+                    #print("Si jalo Risa Inicial " + str(ejemplosRisa[i][0]) + " " + str(prediction[ejemplosRisa[i][0]]))
+                    repeats[ejemplosRisa[i][0]] += 1
+                    startDate = str(datetime.datetime.now())
+                    timerFlag = True
+                    timer = timerMax
+                    handleGPIO(True)
 
         #monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
 
