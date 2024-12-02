@@ -4,11 +4,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import numpy as np
 import pyaudio
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 import pandas as pd
 import sounddevice as sd
 from functions import (checkThreshhold, logTaker)
 import datetime
+import subprocess
 
 import atexit
 
@@ -23,16 +24,34 @@ from plot import Plotter
 if __name__ == "__main__":
 
     ################### SETTINGS ###################
-    # Cambiado para incluir todos los tipos de risa identificados
-    plt_classes = [13, 14, 15, 16, 17, 18]  # índices de clases de risa
-    class_labels = True
+    plt_classes = [494,13,14,15,16,17,18] # Speech, Laugh, Baby Laughter, Belly Laugh, Shockle Hurtle Silence 
+    #[Identificador de clase, threshold]
+    ejemplosRisa = [[13, .09],[14, .09],[15, .09],[16, .09],[17, .09],[18, .09]]
+    #print(len(ejemplosRisa))
+    
+    
+    
+    defaultRepeats = {
+    13: 0,
+    14: 0,
+    15: 0,
+    16: 0,
+    17: 0,
+    18: 0
+    }
+    
+    repeats = defaultRepeats
+    
+    class_labels=True
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
     RATE = params.SAMPLE_RATE
     WIN_SIZE_SEC = 0.975
     CHUNK = int(WIN_SIZE_SEC * RATE)
-    RECORD_SECONDS = 500
+    RECORD_SECONDS = 1000
     MIC = None
+
+    # print(sd.query_devices())
 
     #################### MODEL #####################
     model = YAMNet(weights='keras_yamnet/yamnet.h5')
@@ -41,9 +60,7 @@ if __name__ == "__main__":
     #################### LOG VARIABLES #####################
     timerFlag = False
     timer = 0
-    timerMax = 3
-
-    laughCounter = 0
+    timerMax = 5
 
     led = False
 
@@ -86,40 +103,39 @@ if __name__ == "__main__":
 
         # RESETS TIMER IF LAUGH IS DETECTED IN THE CYCLE
         if (timerFlag == True):
-            # Cambiado para revisar cualquier clase en plt_classes
-            if any(checkThreshhold(threshhold[0], prediction[plt_class]) for plt_class in plt_classes):
-                timer = timerMax
-                laughCounter += 1
-            else:
-                timer -= 1
+            for i in range(len(ejemplosRisa)):
+                if (checkThreshhold(ejemplosRisa[i][1], prediction[ejemplosRisa[i][0]]) == True):
+                    #print("Si jalo Risa " + str(ejemplosRisa[i][0]) + " " + str(prediction[ejemplosRisa[i][0]]))
+                    repeats[ejemplosRisa[i][0]] += 1
+                    timer = timerMax + 1
+            timer -= 1
+            #print("timer "+ str(timer))
 
-        # END LAUGH LOG CYCLE, TURNS OFF MOVEMENT AND REGISTERS LOG IN THE
+        #END LAUGH LOG CYCLE, TURNS OF MOVEMENT AND REGISTERS LOG IN THE 
         if (timerFlag == True and timer <= 0):
             endDate = str(datetime.datetime.now())
-
             # log entry
            
             logTaker(startDate, endDate, laughCounter, threshhold)
 
             # RESET VALUES
             timerFlag = False
-            laughCounter = 0
             startDate = ""
             endDate = ""
+            repeats = {key: 0 for key in repeats.keys()}
 
-        # START LAUGH CYCLE
-        if (timerFlag == False and any(checkThreshhold(threshhold[0], prediction[plt_class]) for plt_class in plt_classes)):
-            # set values
-            startDate = str(datetime.datetime.now())
-            timerFlag = True
-            laughCounter += 1
-            timer = timerMax
+        #START LAUGH CYCLE
+        if (timerFlag == False and prediction[plt_classes[0]] <= .5):
+            for i in range(len(ejemplosRisa)):
+                if (checkThreshhold(ejemplosRisa[i][1], prediction[ejemplosRisa[i][0]]) == True):
+                    #print("Si jalo Risa Inicial " + str(ejemplosRisa[i][0]) + " " + str(prediction[ejemplosRisa[i][0]]))
+                    repeats[ejemplosRisa[i][0]] += 1
+                    startDate = str(datetime.datetime.now())
+                    timerFlag = True
+                    timer = timerMax
+                    handleGPIO(True)
 
-            # on signal
-     
-
-        # Cambiado para mostrar todas las predicciones de las clases seleccionadas
-        monitor(data.transpose(), np.expand_dims(prediction[plt_classes], -1))
+        #monitor(data.transpose(), np.expand_dims(prediction[plt_classes],-1))
 
     # close audio streams
     stream.stop_stream()
