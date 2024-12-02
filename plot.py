@@ -5,6 +5,7 @@ class Plotter():
     def __init__(self, win_size=96, n_wins=10, n_bands=64, n_classes=50, msd_labels=None, FIG_SIZE=(8,8),blit=True):
         # initialize plots
 
+
         self.blit=blit
         self.win_size = win_size
         self.n_wins = n_wins
@@ -22,6 +23,9 @@ class Plotter():
         self.img1 = self.ax1.imshow(self.spec, vmin=0, vmax=1, interpolation="None", cmap="jet",aspect='auto')
         self.ax1.invert_yaxis()
         self.img2 = self.ax2.imshow(self.act, vmin=0, vmax=1, interpolation="None",aspect='auto')
+
+        self.fig.colorbar(self.img1, ax=self.ax1)
+        self.fig.colorbar(self.img2, ax=self.ax2)
 
         if msd_labels is not None:
             self.ax2.set_yticks(np.linspace(0, len(msd_labels), len(msd_labels), endpoint=False))
@@ -63,6 +67,15 @@ class Plotter():
             # redraw just the points
             self.ax1.draw_artist(self.img1)
             self.ax2.draw_artist(self.img2)
+
+            #Change color
+            self.fig.suptitle('Joy Laugh Detection', color="white", fontsize=14)
+            
+            self.ax1.tick_params(colors="white")
+            self.ax2.tick_params(colors="white")
+            self.fig.set_facecolor("black")
+            self.fig.set_edgecolor("white")
+
 
             # fill in the axes rectangle
             self.fig.canvas.blit(self.ax1.bbox)

@@ -1,13 +1,13 @@
 import os
 #Removes logs from tensorflow to avoid unnecessary data in pipe
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import numpy as np
 import pyaudio
 from matplotlib import pyplot as plt
 import pandas as pd
 import sounddevice as sd
-from functions import (checkThreshhold, logTaker, handleGPIO)
+from functions import (checkThreshhold, logTaker)
 import datetime
 
 import atexit
@@ -18,10 +18,7 @@ from keras_yamnet.preprocessing import preprocess_input
 
 from plot import Plotter
 
-@atexit.register
-def on_close():
-    #print("Closed")
-    handleGPIO(False)
+
 
 if __name__ == "__main__":
 
@@ -53,7 +50,7 @@ if __name__ == "__main__":
     startDate = ""
     endDate = ""
 
-    threshhold = [0.6]
+    threshhold = [0.09]
 
     # log headers as CSV file
     print("Start Date,End Date,Count,Threshold")
@@ -101,7 +98,7 @@ if __name__ == "__main__":
             endDate = str(datetime.datetime.now())
 
             # log entry
-            handleGPIO(False)
+           
             logTaker(startDate, endDate, laughCounter, threshhold)
 
             # RESET VALUES
@@ -119,7 +116,7 @@ if __name__ == "__main__":
             timer = timerMax
 
             # on signal
-            handleGPIO(True)
+     
 
         # Cambiado para mostrar todas las predicciones de las clases seleccionadas
         monitor(data.transpose(), np.expand_dims(prediction[plt_classes], -1))
